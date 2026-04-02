@@ -1,0 +1,20 @@
+[Unit]
+Description=tinychat.sh dialog server
+After=network.target hailo-ollama.service
+Wants=hailo-ollama.service
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/home/YOUR_USER/tinychat
+ExecStart=/home/YOUR_USER/tinychat/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 3000
+Restart=always
+RestartSec=5
+Environment=TINYCHAT_DATA_DIR=/home/YOUR_USER/tinychat/data
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/YOUR_USER/tinychat/data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark only">
+    <title>tinychat.sh — history</title>
+    <link rel="stylesheet" href="/static/style.css?v=2">
+</head>
+<body>
+    <div class="header"><a href="/">tinychat.sh</a> / history</div>
+    <div class="divider">───────────────────────────────────────────────────</div>
+    <div class="explainer">
+        full conversation log. {{ history | length }} turns total.
+    </div>
+    <div class="divider">───────────────────────────────────────────────────</div>
+
+    <div class="conversation">
+        {% set prev_hash = namespace(drift='', echo='') %}
+        {% for turn in history %}
+            {% if turn.speaker == 'drift' and turn.prompt_hash != prev_hash.drift %}
+                {% if prev_hash.drift %}
+                <div class="prompt-change">── drift's prompt changed at {{ turn.timestamp[11:19] }} ──</div>
+                {% endif %}
+                {% set prev_hash.drift = turn.prompt_hash %}
+            {% elif turn.speaker == 'echo' and turn.prompt_hash != prev_hash.echo %}
+                {% if prev_hash.echo %}
+                <div class="prompt-change">── echo's prompt changed at {{ turn.timestamp[11:19] }} ──</div>
+                {% endif %}
+                {% set prev_hash.echo = turn.prompt_hash %}
+            {% endif %}
+            <div class="turn">
+                <span class="time">[{{ turn.timestamp[11:19] }}]</span>
+                <span class="speaker-{{ turn.speaker }}">{{ turn.speaker }}</span>
+                &gt; <span class="text">{{ turn.text }}</span>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="divider">───────────────────────────────────────────────────</div>
+    <div class="footer">
+        <a href="/">[back to live]</a> &middot;
+        <a href="https://github.com/benreeve1984/ai-pi">[source]</a> &middot;
+        powered by qwen2.5 1.5b on a raspberry pi 5
+    </div>
+</body>
+</html>

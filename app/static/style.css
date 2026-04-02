@@ -1,0 +1,206 @@
+:root {
+    color-scheme: dark only;
+    --bg: #0a0a0a;
+    --fg: #b0b0b0;
+    --green: #4af626;
+    --amber: #ffb000;
+    --dim: #555;
+    --border: #333;
+}
+
+.hidden {
+    display: none !important;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    padding: 1rem;
+    max-width: 80ch;
+    margin: 0 auto;
+}
+
+a {
+    color: var(--green);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.header {
+    color: var(--green);
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.divider {
+    color: var(--dim);
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.explainer {
+    color: var(--dim);
+    margin: 0.5rem 0 1rem;
+}
+
+.prompt-section {
+    margin: 1rem 0;
+}
+
+.prompt-label {
+    color: var(--amber);
+}
+
+.prompt-box {
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+    margin-top: 0.25rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.prompt-box.editable {
+    cursor: pointer;
+}
+
+.prompt-box.editable:hover {
+    border-color: var(--green);
+}
+
+.prompt-box.editing {
+    border-color: var(--green);
+    outline: none;
+    cursor: text;
+}
+
+.prompt-box.locked {
+    cursor: default;
+}
+
+.prompt-box.locked:hover {
+    border-color: var(--border);
+}
+
+.required {
+    color: var(--amber);
+    font-size: 12px;
+}
+
+#save-bar {
+    margin: 0.75rem 0 0.5rem;
+}
+
+.save-btn {
+    color: var(--green);
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--green);
+    padding: 0.15rem 0.5rem;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.cancel-btn {
+    color: var(--dim);
+    cursor: pointer;
+    background: none;
+    border: 1px solid var(--dim);
+    padding: 0.15rem 0.5rem;
+    font-family: inherit;
+    font-size: 12px;
+    margin-left: 0.5rem;
+}
+
+.editor-error {
+    color: var(--amber);
+    font-size: 12px;
+    margin-left: 0.5rem;
+}
+
+#cooldown-bar {
+    margin: 0.75rem 0 0.5rem;
+}
+
+.cooldown-text {
+    color: var(--amber);
+    font-size: 12px;
+}
+
+.conversation {
+    margin-top: 1rem;
+}
+
+.turn {
+    margin-bottom: 0.25rem;
+}
+
+.turn .time {
+    color: var(--dim);
+}
+
+.turn .speaker-drift {
+    color: var(--green);
+}
+
+.turn .speaker-echo {
+    color: var(--amber);
+}
+
+.turn .text {
+    color: var(--fg);
+}
+
+.cursor-blink {
+    animation: blink 1s step-end infinite;
+    color: var(--green);
+}
+
+@keyframes blink {
+    50% { opacity: 0; }
+}
+
+.streaming-text {
+    color: var(--fg);
+}
+
+.footer {
+    margin-top: 2rem;
+    color: var(--dim);
+    font-size: 12px;
+}
+
+.footer a {
+    color: var(--dim);
+}
+
+.footer a:hover {
+    color: var(--green);
+}
+
+.status {
+    color: var(--green);
+    font-size: 12px;
+}
+
+.status.paused {
+    color: var(--amber);
+}
+
+.prompt-change {
+    color: var(--dim);
+    text-align: center;
+    margin: 0.5rem 0;
+}
+

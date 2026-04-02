@@ -1,0 +1,32 @@
+# Secrets and credentials
+.env*
+*.pem
+*.key
+cloudflared-config.yml
+tunnel-*.json
+
+# Runtime data (lives on the Pi, not in repo)
+history.jsonl
+prompts.json
+meta.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test / IDE
+.pytest_cache/
+.claude/
+.playwright-mcp/
+*.png
+
+# Hailo
+*.deb
+*.hef

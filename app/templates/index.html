@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark only">
+    <title>tinychat.sh</title>
+    <link rel="stylesheet" href="/static/style.css?v=3">
+</head>
+<body>
+    <div class="header">tinychat.sh</div>
+    <div class="divider">───────────────────────────────────────────────────</div>
+    <div class="explainer">
+        two tiny minds on a raspberry pi, drifting in dialog.<br>
+        click any box below to edit. saving restarts the<br>
+        conversation with a new topic. see where it goes.
+    </div>
+    <div class="divider">───────────────────────────────────────────────────</div>
+
+    <div class="prompt-section">
+        <div class="prompt-label">&gt; DRIFT's prompt</div>
+        <div class="prompt-box editable" id="box-drift" onclick="startEdit(this)">{{ prompts.drift }}</div>
+    </div>
+
+    <div class="prompt-section">
+        <div class="prompt-label">&gt; ECHO's prompt</div>
+        <div class="prompt-box editable" id="box-echo" onclick="startEdit(this)">{{ prompts.echo }}</div>
+    </div>
+
+    <div class="prompt-section">
+        <div class="prompt-label">&gt; topic <span class="required hidden" id="topic-hint">*new topic required</span></div>
+        <div class="prompt-box editable" id="box-topic" onclick="startEdit(this)">{{ topic or 'click to set a topic...' }}</div>
+    </div>
+
+    <div id="save-bar" class="hidden">
+        <button class="save-btn" onclick="saveAll()">[save & restart]</button>
+        <button class="cancel-btn" onclick="cancelAll()">[cancel]</button>
+        <span class="editor-error" id="save-error"></span>
+    </div>
+
+    <div id="cooldown-bar" class="hidden">
+        <span class="cooldown-text">cooldown: <span id="cooldown-timer">60</span>s — editing locked</span>
+    </div>
+
+    <div class="divider">─────────── conversation ───────────────────────────</div>
+    <div class="status" id="status">[live]</div>
+
+    <div id="streaming" class="hidden">
+        <span class="time" id="stream-time"></span>
+        <span id="stream-speaker"></span>
+        &gt; <span class="streaming-text" id="stream-text"></span><span class="cursor-blink">&#9612;</span>
+    </div>
+
+    <div class="conversation" id="conversation">
+        {% for turn in history | reverse %}
+        <div class="turn">
+            <span class="time">[{{ turn.timestamp[11:19] }}]</span>
+            <span class="speaker-{{ turn.speaker }}">{{ turn.speaker }}</span>
+            &gt; <span class="text">{{ turn.text }}</span>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="divider">───────────────────────────────────────────────────</div>
+    <div class="footer">
+        <a href="/history">[full history]</a> &middot;
+        <a href="https://github.com/benreeve1984/ai-pi">[source]</a> &middot;
+        powered by qwen2.5 1.5b on a raspberry pi 5
+    </div>
+
+    <script>
+    var conversation = document.getElementById('conversation');
+    var streaming = document.getElementById('streaming');
+    var streamText = document.getElementById('stream-text');
+    var streamSpeaker = document.getElementById('stream-speaker');
+    var streamTime = document.getElementById('stream-time');
+    var status = document.getElementById('status');
+    var editing = false;
+    var locked = false;
+    var boxes = ['drift', 'echo', 'topic'];
+    var originals = {};
+
+    var evtSource = new EventSource('/events');
+
+    evtSource.addEventListener('generation_start', function(e) {
+        var data = JSON.parse(e.data);
+        var now = new Date().toISOString().slice(11, 19);
+        streamTime.textContent = '[' + now + ']';
+        streamSpeaker.className = 'speaker-' + data.speaker;
+        streamSpeaker.textContent = data.speaker;
+        streamText.textContent = '';
+        streaming.classList.remove('hidden');
+    });
+
+    evtSource.addEventListener('token', function(e) {
+        var data = JSON.parse(e.data);
+        streamText.textContent += data.token;
+    });
+
+    evtSource.addEventListener('turn_complete', function(e) {
+        var turn = JSON.parse(e.data);
+        streaming.classList.add('hidden');
+        streamText.textContent = '';
+        var div = document.createElement('div');
+        div.className = 'turn';
+        var timeSpan = document.createElement('span');
+        timeSpan.className = 'time';
+        timeSpan.textContent = '[' + turn.timestamp.slice(11, 19) + ']';
+        var speakerSpan = document.createElement('span');
+        speakerSpan.className = 'speaker-' + turn.speaker;
+        speakerSpan.textContent = turn.speaker;
+        var textSpan = document.createElement('span');
+        textSpan.className = 'text';
+        textSpan.textContent = turn.text;
+        div.appendChild(timeSpan);
+        div.appendChild(document.createTextNode(' '));
+        div.appendChild(speakerSpan);
+        div.appendChild(document.createTextNode(' > '));
+        div.appendChild(textSpan);
+        conversation.prepend(div);
+        while (conversation.children.length > 50) {
+            conversation.removeChild(conversation.lastChild);
+        }
+    });
+
+    evtSource.addEventListener('config_updated', function(e) {
+        var data = JSON.parse(e.data);
+        conversation.textContent = '';
+        document.getElementById('box-drift').textContent = data.drift;
+        document.getElementById('box-echo').textContent = data.echo;
+        document.getElementById('box-topic').textContent = data.topic;
+        if (editing) { exitEditMode(); }
+        startCooldown(data.cooldown);
+    });
+
+    evtSource.addEventListener('ping', function() {
+        status.textContent = '[live]';
+        status.className = 'status';
+    });
+    evtSource.onopen = function() {
+        status.textContent = '[live]';
+        status.className = 'status';
+    };
+    evtSource.onerror = function() {
+        status.textContent = '[disconnected]';
+        status.className = 'status paused';
+    };
+
+    // ── Cooldown ──
+
+    var cooldownInterval = null;
+
+    function stopCooldown() {
+        if (cooldownInterval) clearInterval(cooldownInterval);
+        cooldownInterval = null;
+        document.getElementById('cooldown-bar').classList.add('hidden');
+        locked = false;
+        document.querySelectorAll('.editable').forEach(function(el) {
+            el.classList.remove('locked');
+        });
+    }
+
+    function startCooldown(seconds) {
+        if (seconds <= 0) { stopCooldown(); return; }
+        locked = true;
+        var bar = document.getElementById('cooldown-bar');
+        var timer = document.getElementById('cooldown-timer');
+        var remaining = seconds;
+        bar.classList.remove('hidden');
+        timer.textContent = remaining;
+        document.querySelectorAll('.editable').forEach(function(el) {
+            el.classList.add('locked');
+        });
+        if (cooldownInterval) clearInterval(cooldownInterval);
+        cooldownInterval = setInterval(function() {
+            remaining--;
+            timer.textContent = remaining;
+            if (remaining <= 0) { stopCooldown(); }
+        }, 1000);
+    }
+
+    // ── Editing ──
+
+    function startEdit(clicked) {
+        if (locked || editing) return;
+        editing = true;
+        boxes.forEach(function(f) {
+            var box = document.getElementById('box-' + f);
+            originals[f] = box.innerText;
+            box.contentEditable = 'true';
+            box.classList.add('editing');
+            if (f === 'topic' && box.innerText === 'click to set a topic...') {
+                box.textContent = '';
+            }
+        });
+        document.getElementById('save-bar').classList.remove('hidden');
+        document.getElementById('topic-hint').classList.remove('hidden');
+        document.getElementById('save-error').textContent = '';
+        clicked.focus();
+    }
+
+    function exitEditMode() {
+        editing = false;
+        boxes.forEach(function(f) {
+            var box = document.getElementById('box-' + f);
+            box.contentEditable = 'false';
+            box.classList.remove('editing');
+        });
+        document.getElementById('save-bar').classList.add('hidden');
+        document.getElementById('topic-hint').classList.add('hidden');
+        document.getElementById('save-error').textContent = '';
+    }
+
+    function cancelAll() {
+        boxes.forEach(function(f) {
+            document.getElementById('box-' + f).textContent = originals[f] || '';
+        });
+        exitEditMode();
+    }
+
+    // Strip rich text on paste for all editable boxes
+    document.addEventListener('paste', function(e) {
+        if (e.target.contentEditable === 'true') {
+            e.preventDefault();
+            var text = (e.clipboardData || window.clipboardData).getData('text/plain');
+            document.execCommand('insertText', false, text);
+        }
+    });
+
+    async function saveAll() {
+        var topic = document.getElementById('box-topic').innerText.trim();
+        if (!topic) {
+            document.getElementById('save-error').textContent = 'topic is required';
+            return;
+        }
+        var drift = document.getElementById('box-drift').innerText.trim();
+        var echo = document.getElementById('box-echo').innerText.trim();
+        if (!drift || !echo) {
+            document.getElementById('save-error').textContent = 'prompts cannot be empty';
+            return;
+        }
+        try {
+            var res = await fetch('/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({drift: drift, echo: echo, topic: topic}),
+            });
+            if (!res.ok) {
+                var err = await res.json();
+                document.getElementById('save-error').textContent = err.detail || 'failed to save';
+                return;
+            }
+            exitEditMode();
+        } catch (e) {
+            document.getElementById('save-error').textContent = 'connection error';
+        }
+    }
+
+    fetch('/state').then(function(r) { return r.json(); }).then(function(d) {
+        if (d.cooldown > 0) startCooldown(d.cooldown);
+    });
+    </script>
+</body>
+</html>
